@@ -1,12 +1,7 @@
-import sys
-import warnings
 import time
 import numpy as np
 
 WARN_MIN_TRIPLETS = 100  # Recommended number or triplets for an optimum result
-
-if not sys.warnoptions:
-    warnings.simplefilter("always")
 
 
 def timeit(method):
@@ -48,7 +43,8 @@ def etc(q_hat):
     Returns
     -------
     stderr : array
-        array of 3 standard errors for each of the measurement systems (x, y, z).
+        Array of shape (3,) or (3, f) with standard errors for each of the
+        measurement systems x, y and z.
     rho : array
         array of 3 correlation coefficients for each of the measurement systems
         (x, y and z) with respect to the unknown truth.
@@ -84,10 +80,9 @@ def etc(q_hat):
 
     no_valid = errvar < 0
     if np.any(no_valid):
-        warnings.warn("At least one calculated error variance is negative. "
+        print("Warning: At least one calculated error variance is negative. "
                       "This can happen if the sample size is too small, "
-                      "or if one of the assumptions of CTC is violated.",
-                      RuntimeWarning)
+                      "or if one of the assumptions of CTC is violated.")
     stderr = np.full_like(errvar, np.nan)
     stderr[~no_valid] = np.sqrt(errvar[~no_valid])
 
@@ -136,10 +131,10 @@ def ctc(q_hat):
 
     Returns
     -------
-    stderr : tuple
-        tuple of 3 standard errors for each of the measurement systems,
-        corresponding to measurements x, y and z.
-    rho_xy: float
+    stderr : array
+        Array of shape (3,) or (3, f) with standard errors for each of the
+        measurement systems x, y and z.
+    rho_xy: float or array
         correlation coefficient between the errors of x and y.
 
     References
@@ -170,39 +165,99 @@ def ctc(q_hat):
 
     no_valid = errvar < 0
     if np.any(no_valid):
-        warnings.warn("At least one calculated error variance is negative. "
+        print("Warning: At least one calculated error variance is negative. "
                       "This can happen if the sample size is too small, "
-                      "or if one of the assumptions of CTC is violated.",
-                      RuntimeWarning)
+                      "or if one of the assumptions of CTC is violated.")
     stderr = np.full_like(errvar, np.nan)
     stderr[~no_valid] = np.sqrt(errvar[~no_valid])
 
     # Covariance of errors between x and y Eq. 8 of [GonzalezGambau_2020]_
-    rho_xy = -u * v * s_1_prime + s_2_prime - s_23_prime
+    cov_xy = -u * v * s_1_prime + s_2_prime - s_23_prime
     # Convert to Corrrelation of errors between x and y
-    rho_xy = rho_xy / (stderr[0] * stderr[1])
+    rho_xy = cov_xy / (stderr[0] * stderr[1])
+    rho_xy = np.where(np.logical_and(rho_xy >= -1, rho_xy <= 1), rho_xy, np.nan)
     return stderr, rho_xy
+    
 
 @timeit
-def scaling_factors(ref, y, z):
+def lsetc(q_hat):
+    """
+    Least Squared Error Triple Collocation (CTC).
+
+    LSETC estimates the variance of the noise error (RMSE_u)
+    and correlation coefficient (r) between the noises in the two
+    a priori correlated systems, with respect to the unknown true value of
+    the variable being measured e.g., turbulent fluxes, soil moisture, ...).
+
+    Input variables used in the covariance matrix should have been rescaled,
+    so that $\alpha_{1,2}=\alpha_{1,3}=1$.
+
+    Parameters
+    ----------
+    q_hat : 2D or 3D array
+        Covariance matrix of shape (3, 3) or (3, 3, f) of the three
+        rescaled spatially-collocated measurement systems.
+        f is the number of different collocated points.
+
+    Returns
+    -------
+    stderr : array
+        Array of shape (3,) or (3, f) with standard errors for each of the
+        measurement systems x, y and z.
+    rho_xy: float or array
+        correlation coefficient between the errors of x and y.
+
+    References
+    ----------
+    .. [GonzalezGambau_2020] González-Gambau, V., Turiel, A., González-Haro, C.,
+        Martínez, J., Olmedo, E., Oliva, R., Martín-Neira, M., 2020.
+        Triple Collocation Analysis for Two Error-Correlated Datasets:
+        Application to L-Band Brightness Temperatures over Land.
+        Remote Sensing 12, 3381.
+        https://doi.org/10.3390/rs12203381
+
+    """
+    # Estimates for the error variances Eq. A11 of [GonzalezGambau_2020]_
+    truevar = 0.5 * (q_hat[0, 2] + q_hat[1, 2])
+    errvar = np.array([q_hat[0, 0] - truevar,
+                       q_hat[1, 1] - truevar,
+                       q_hat[2, 2] - truevar])
+
+    no_valid = errvar < 0
+    if np.any(no_valid):
+        print("Warning: At least one calculated error variance is negative. "
+                      "This can happen if the sample size is too small, "
+                      "or if one of the assumptions of CTC is violated.")
+    stderr = np.full_like(errvar, np.nan)
+    stderr[~no_valid] = np.sqrt(errvar[~no_valid])
+
+    # Covariance of errors between x and y Eq. A11 of [GonzalezGambau_2020]_
+    cov_xy = q_hat[0, 1] - truevar
+    # Convert to Corrrelation of errors between x and y
+    rho_xy = cov_xy / (stderr[0] * stderr[1])
+    rho_xy = np.where(np.logical_and(rho_xy >= -1, rho_xy <= 1), rho_xy, np.nan)
+    return stderr, rho_xy
+
+
+@timeit
+def scaling_factors(q_hat):
     """
     Compute scaling factors from a reference system based on triple collocation.
 
     Parameters
     ----------
-    ref, y, z : array_like
-        Arrays of shape (N,) or shape (N, f) of spatially-collocated measurement systems.
-        N is the sample size and f is the number of different collocated points.
-        `ref` is the variable use as reference for the rescaling
+    q_hat : 2D or 3D array
+        Covariance matrix of shape (3, 3) or (3, 3, f) of the three
+        rescaled spatially-collocated measurement systems. Rescaling factors will
+        be computed with first system as reference.
+        f is the number of different collocated points.
 
     Returns
     -------
-    factor_y : float or array
-        Rescaling factor between `y` and the reference system.
-        If array (f, ) returns the rescaling factor for each of the different collocated points.
-    factor_z : float or array
-        Rescaling factor between `z` and the reference system.
-        If array (f, ) returns the rescaling factor for each of the different collocated points.
+    factors : array
+        Array of shape (3,) or (3, f) with rescaling factors for each of the
+        measurement systems x, y and z.
+        Since z is the reference system, factors[2] = 1
 
     References
     ----------
@@ -212,16 +267,14 @@ def scaling_factors(ref, y, z):
         https://doi.org/10.1175/JHM-D-13-0158.1
 
     """
-    if ref.ndim == 1:
-        q_hat = covariance_matrix(ref, y, z)
-    else:
-        q_hat = covariance_matrix_vec(ref, y, z)
 
     # Eqs. 4 & 5 of [Yilmaz_2014]_
-    factor_y = q_hat[0, 2] / q_hat[1, 2]
-    factor_z = q_hat[0, 1] / q_hat[2, 1]
+    factors = np.array([np.ones_like(q_hat[1, 2]),
+                        q_hat[0, 2] / q_hat[1, 2],
+                        q_hat[0, 1] / q_hat[2, 1],
+                        ])
 
-    return factor_y, factor_z
+    return factors
 
 
 def covariance_matrix(x, y, z):
@@ -238,10 +291,11 @@ def covariance_matrix(x, y, z):
     valid = np.logical_and.reduce((np.isfinite(x),
                                    np.isfinite(y),
                                    np.isfinite(z)))
-    if np.sum(valid) < WARN_MIN_TRIPLETS:
-        warnings.warn(f"Sample size is too small (n={np.sum(valid)}, "
-                      "Consider increasing your sample size for robust TC metrics",
-                      RuntimeWarning)
+
+    n_valid = np.sum(valid)
+    if n_valid < WARN_MIN_TRIPLETS:
+        print(f"Warning: Sample size is too small (n={n_valid}, "
+              "Consider increasing your sample size for robust TC metrics")
 
     if np.size(np.unique(x[valid])) <= 1 or np.size(np.unique(y[valid])) <= 1 \
             or np.size(np.unique(z[valid])) <= 1:
@@ -253,6 +307,7 @@ def covariance_matrix(x, y, z):
     q_hat = np.cov(np.stack((x[valid], y[valid], z[valid]), axis=0))
 
     return q_hat
+
 
 @timeit
 def covariance_matrix_vec(x, y, z):
@@ -334,4 +389,60 @@ def apply_calibration(ref, x, factor):
     x_prime = ref_mean + factor * (x - x_mean)
 
     return x_prime
+
+
+def tc_gruber(x, y, ref):
+    """Calculate the recomended Triple Collocation Metrics by [Gruber_2016]_
+
+    Parameters
+    ----------
+    x, y, z : array_like
+        Arrays of shape (N,) or shape (N, f) of spatially-collocated measurement systems.
+        N is the sample size and f is the number of different collocated points.
+
+    Returns
+    -------
+    factors : tuple or 2D array
+        Calibration correction factor between ``x``, ``y`` and ``ref``.
+        If 1D array its shape must be (f,).
+    stderr : tuple
+        tuple of 3 standard errors for each of the measurement systems,
+        corresponding to measurements x, y and z.
+    snrs_db : tuple
+        tuple of 3 Signal to Noise Ratio in decibels,
+        after base10 logarithmic transformation.
+    sens : tuple
+        tuple of 3 System sensitivities to changes in the true signal
+    """
+
+    if x.ndim == 1:
+        cov_matrix = covariance_matrix(x, y, ref)
+    else:
+        cov_matrix = covariance_matrix_vec(x, y, ref)
+
+    stderr, cors, snrs_db, sens = etc(cov_matrix)
+
+    return stderr, snrs_db, sens
+
+
+def ctc_helper(x, y, z):
+    if x.ndim == 1:
+        cov_matrix = covariance_matrix(x, y, z)
+    else:
+        cov_matrix = covariance_matrix_vec(x, y, z)
+    factors = scaling_factors(cov_matrix)
+
+    y_corr = apply_calibration(x, y, factors[1])
+
+    if x.ndim == 1:
+        cov_matrix = covariance_matrix(x, y_corr, z)
+    else:
+        cov_matrix = covariance_matrix_vec(x, y_corr, z)
+
+    stderr, rho_xy = lsetc(cov_matrix)
+
+    stderr = stderr / factors
+
+    return stderr, rho_xy
+
 
