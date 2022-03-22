@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.stats as st
+from scipy.interpolate import interpn
 
 def descriptive_stats(obs, pre):
     """
@@ -197,7 +198,6 @@ def rmse_stdev_decomposition(obs, pre):
     obs, pre = remove_nans(obs, pre)
 
     pre_hat = apply_calibration(obs, pre)
-
     rmse_u = np.sqrt(np.mean((pre_hat - obs) ** 2))
 
     return rmse_u
@@ -243,6 +243,7 @@ def scaling_factor(obs, pre):
     factor = np.std(obs) / np.std(pre)
 
     return factor
+
 
 def apply_calibration(obs, pre):
     """Apply the calibration coefficient between a variable and its reference
@@ -298,3 +299,27 @@ def remove_nans(obs, pre):
     pre = pre[valid]
     return obs, pre
 
+
+def density_plot(x, y, ax, **scatter_kwargs):
+    """
+    Creates a coloured density x-y scatter plot on a given subplot
+
+    Parameters
+    ----------
+    x, y : array_like
+        Arrays of N elements of spatially-collocated observed and predicted systems.
+    ax : Object
+        Single matplotlib Axes object on which the density scatterplot will be
+        displayed
+    **scatter_kwargs :
+        Any additional keyword arguments passed to the pyplot.scatter call.
+    """
+    x, y = remove_nans(x, y)
+    data, x_e, y_e = np.histogram2d(x, y, bins=30, density=True)
+    z = interpn((0.5 * (x_e[1:] + x_e[:-1]), 0.5 * (y_e[1:] + y_e[:-1])),
+                data,
+                np.array([x, y]).T,
+                method="splinef2d",
+                bounds_error=False)
+
+    ax.scatter(x,y, c=z, **scatter_kwargs)
