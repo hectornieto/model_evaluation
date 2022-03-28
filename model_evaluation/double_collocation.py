@@ -115,9 +115,11 @@ def agreement_metrics(obs, pre):
 
     # Remove of any existing NaN in any of the collocated systems
     obs, pre = remove_nans(obs, pre)
-
-    cor, p_value = st.pearsonr(obs, pre)
-    slope, intercept = st.linregress(obs, pre)[:2]
+    if np.size(obs) > 2:
+        cor, p_value = st.pearsonr(obs, pre)
+        slope, intercept = st.linregress(obs, pre)[:2]
+    else:
+        cor, p_value, slope, intercept = np.nan, np.nan, np.nan, np._financial_names
 
     obs_hat = np.mean(obs)
     pre_prime = pre - obs_hat
@@ -156,6 +158,8 @@ def rmse_wilmott_decomposition(obs, pre):
 
     # Remove of any existing NaN in any of the collocated systems
     obs, pre = remove_nans(obs, pre)
+    if np.size(obs) <= 2:
+        return np.nan, np.nan
 
     slope, intercept = st.linregress(obs, pre)[:2]
 
