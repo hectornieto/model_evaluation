@@ -82,6 +82,16 @@ def error_metrics(obs, pre):
     return mean_bias, mae, rmse
 
 
+def centered_rmsd(obs, pre):
+    obs, pre = remove_nans(obs, pre)
+    # Calculate means
+    obs_mean = np.mean(obs)
+    pre_mean = np.mean(pre)
+
+    crmsd = np.sqrt(np.mean(((pre - pre_mean) - (obs - obs_mean))**2))
+    return crmsd
+
+
 def agreement_metrics(obs, pre):
     """
     Calculates the typical agreement measurements based on collocated
