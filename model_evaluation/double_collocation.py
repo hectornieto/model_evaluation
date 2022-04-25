@@ -308,6 +308,7 @@ def remove_nans(obs, pre):
     obs, pre : array_like
         Observed and predicted arrays with filtered Nans.
     """
+    obs, pre = obs.astype(float), pre.astype(float)
     valid = np.logical_and(np.isfinite(obs), np.isfinite(pre))
     obs = obs[valid]
     pre = pre[valid]
@@ -337,3 +338,23 @@ def density_plot(x, y, ax, **scatter_kwargs):
                 bounds_error=False)
 
     ax.scatter(x,y, c=z, **scatter_kwargs)
+
+def nse(obs, pre):
+    """Nash-Sutcliffe efficiency
+        Parameters
+    ----------
+    obs, pre : array_like
+        Arrays of N elements of spatially-collocated observed and predicted systems.
+        N is the sample size.
+
+    Returns
+    -------
+    e : array_like
+        Nash-Sutcliffe efficiency index
+    """
+
+    obs, pre = remove_nans(obs, pre)
+    mean_obs = np.mean(obs)
+    e = 1. - np.sum((obs - pre)**2) / np.sum((obs - mean_obs)**2)
+    return e
+
