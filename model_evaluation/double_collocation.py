@@ -10,7 +10,8 @@ def descriptive_stats(obs, pre):
     Parameters
     ----------
     obs, pre : array_like
-        Arrays of N elements of spatially-collocated observed and predicted systems.
+        Arrays of N elements of spatially-collocated observed and 
+        predicted systems.
         N is the sample size.
 
     Returns
@@ -52,7 +53,8 @@ def error_metrics(obs, pre):
     Parameters
     ----------
     obs, pre : array_like
-        Arrays of N elements of spatially-collocated observed and predicted systems.
+        Arrays of N elements of spatially-collocated observed and 
+        predicted systems.
         N is the sample size.
 
     Returns
@@ -100,7 +102,8 @@ def agreement_metrics(obs, pre):
     Parameters
     ----------
     obs, pre : array_like
-        Arrays of N elements of spatially-collocated observed and predicted systems.
+        Arrays of N elements of spatially-collocated observed and 
+        predicted systems.
         N is the sample size.
 
     Returns
@@ -148,7 +151,8 @@ def rmse_wilmott_decomposition(obs, pre):
     Parameters
     ----------
     obs, pre : array_like
-        Arrays of N elements of spatially-collocated observed and predicted systems.
+        Arrays of N elements of spatially-collocated observed and 
+        predicted systems.
         N is the sample size.
 
     Returns
@@ -190,7 +194,8 @@ def rmse_stdev_decomposition(obs, pre):
     Parameters
     ----------
     obs, pre : array_like
-        Arrays of N elements of spatially-collocated observed and predicted systems.
+        Arrays of N elements of spatially-collocated observed and 
+        predicted systems.
         N is the sample size.
 
     Returns
@@ -235,7 +240,8 @@ def scaling_factor(obs, pre):
         Parameters
     ----------
     obs, pre : array_like
-        Arrays of N elements of spatially-collocated observed and predicted systems.
+        Arrays of N elements of spatially-collocated observed 
+        and predicted systems.
         N is the sample size.
 
     Returns
@@ -246,7 +252,8 @@ def scaling_factor(obs, pre):
     References
     ----------
     .. [Yilmaz_2013] Yilmaz, M. T., & Crow, W. T. (2013).
-        The Optimality of Potential Rescaling Approaches in Land Data Assimilation.
+        The Optimality of Potential Rescaling Approaches in 
+        Land Data Assimilation.
         Journal of Hydrometeorology, 14(2), 650-660.
         https://doi.org/10.1175/JHM-D-12-052.1
     """
@@ -269,7 +276,8 @@ def apply_calibration(obs, pre):
         for the calibration.
         N is the sample size and f is the number of different collocated points.
     pre : array_like
-        Predicted measurement system e ith shape (N,) or (N, f) that will be calibrated
+        Predicted measurement system e ith shape (N,) or (N, f) that will be 
+        calibrated
         N is the sample size and f is the number of different collocated points.
 
     Returns
@@ -300,7 +308,8 @@ def remove_nans(obs, pre):
     Parameters
     ----------
     obs, pre : array_like
-        Arrays of N elements of spatially-collocated observed and predicted systems.
+        Arrays of N elements of spatially-collocated observed 
+        and predicted systems.
         N is the sample size.
 
     Returns
@@ -322,7 +331,8 @@ def density_plot(x, y, ax, **scatter_kwargs):
     Parameters
     ----------
     x, y : array_like
-        Arrays of N elements of spatially-collocated observed and predicted systems.
+        Arrays of N elements of spatially-collocated observed 
+        and predicted systems.
     ax : Object
         Single matplotlib Axes object on which the density scatterplot will be
         displayed
@@ -339,12 +349,14 @@ def density_plot(x, y, ax, **scatter_kwargs):
 
     ax.scatter(x,y, c=z, **scatter_kwargs)
 
+
 def nse(obs, pre):
     """Nash-Sutcliffe efficiency
-        Parameters
+    Parameters
     ----------
     obs, pre : array_like
-        Arrays of N elements of spatially-collocated observed and predicted systems.
+        Arrays of N elements of spatially-collocated observed 
+        and predicted systems.
         N is the sample size.
 
     Returns
@@ -357,4 +369,63 @@ def nse(obs, pre):
     mean_obs = np.mean(obs)
     e = 1. - np.sum((obs - pre)**2) / np.sum((obs - mean_obs)**2)
     return e
+
+
+def kge(obs, pre):
+    """Kling-Gupta Efficiency
+
+    Parameters
+    ----------
+    obs, pre : array_like
+        Arrays of N elements of spatially-collocated observed and 
+        predicted systems.
+        N is the sample size.
+
+    Returns
+    -------
+    e : array_like
+        Nash-Sutcliffe efficiency index
+    """
+
+    obs, pre = remove_nans(obs, pre)
+    _, mean_obs, mean_pre, std_obs, std_pre = descriptive_stats(obs, pre)
+    cor = agreement_metrics(obs, pre)[0]
+    # Bias ratio
+    beta = mean_pre / mean_obs
+    # Variability ratio
+    gamma = (std_pre * mean_obs) / (std_obs * mean_pre)
+    e = 1 - np.sqrt((cor - 1)**2 + (beta - 1)**2 + (gamma - 1)**2)
+    return e
+
+
+def chi_squared(obs, pre, unc_obs, unc_pre):
+    """Chi-squared
+
+    Parameters
+    ----------
+    obs, pre : array_like
+        Arrays of N elements of spatially-collocated observed 
+        and predicted systems.
+        N is the sample size.
+    unc_obs, unc_pre : array_like
+        Arrays of N elements of spatially-collocated uncertainties
+        for the observed and predicted. N is the sample size.
+
+    Returns
+    -------
+    chi : array_like
+        The goodness of fit between the actual and estimated uncertainties of
+        measurement and validation values
+    """
+    valid = np.logical_and.reduce((np.isfinite(obs),
+                                   np.isfinite(pre),
+                                   np.isfinite(unc_obs),
+                                   np.isfinite(unc_pre)))
+    obs = obs[valid]
+    pre = pre[valid]
+    unc_obs = unc_obs[valid]
+    unc_pre = unc_pre[valid]
+    chi2 = np.sum(((pre - obs)**2) / (unc_pre**2 + unc_obs**2))
+    p_val = st.chi2.sf(chi2, df=np.sum(valid))
+    return chi2, p_val
 
