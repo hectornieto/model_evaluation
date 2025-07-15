@@ -324,34 +324,47 @@ def remove_nans(obs, pre):
     return obs, pre
 
 
-def density_plot(x, y, ax, **scatter_kwargs):
+def density_plot(obs, pre, ax, **scatter_kwargs):
     """
-    Creates a coloured density x-y scatter plot on a given subplot
+    Creates a coloured density Observed vs. Predicted scatter plot on a given subplot
 
     Parameters
     ----------
-    x, y : array_like
-        Arrays of N elements of spatially-collocated observed 
-        and predicted systems.
+    obs, pre : array_like
+        Arrays of N elements of spatially-collocated observed (y-axis)
+        and predicted (x-axis) systems.
+        N is the sample size.
     ax : Object
         Single matplotlib Axes object on which the density scatterplot will be
         displayed
     **scatter_kwargs :
         Any additional keyword arguments passed to the pyplot.scatter call.
+
+    References
+    ----------
+    .. [Piñeiro2008] Piñeiro, G., Perelman, S., Guerschman, J. P.,
+        & Paruelo, J. M., 2008
+        How to evaluate models: observed vs. predicted or
+        predicted vs. observed?.
+        Ecological modelling, 216(3-4), 316-322.
+        https://doi.org/10.1016/j.ecolmodel.2008.05.006
     """
-    x, y = remove_nans(x, y)
-    data, x_e, y_e = np.histogram2d(x, y, bins=30, density=True)
-    z = interpn((0.5 * (x_e[1:] + x_e[:-1]), 0.5 * (y_e[1:] + y_e[:-1])),
+    pre, obs = remove_nans(pre, obs)
+    data, pre_e, obs_e = np.histogram2d(pre, obs, bins=30, density=True)
+    z = interpn((0.5 * (pre_e[1:] + pre_e[:-1]),
+                 0.5 * (obs_e[1:] + obs_e[:-1])),
                 data,
-                np.array([x, y]).T,
+                np.array([pre, obs]).T,
                 method="splinef2d",
                 bounds_error=False)
 
-    ax.scatter(x,y, c=z, **scatter_kwargs)
+    # Observed (in the y-axis) vs. predicted (in the x-axis) (OP) regressions.
+    ax.scatter(pre, obs, c=z, **scatter_kwargs)
 
 
 def nse(obs, pre):
     """Nash-Sutcliffe efficiency
+
     Parameters
     ----------
     obs, pre : array_like
@@ -428,4 +441,49 @@ def chi_squared(obs, pre, unc_obs, unc_pre):
     chi2 = np.sum(((pre - obs)**2) / (unc_pre**2 + unc_obs**2))
     p_val = st.chi2.sf(chi2, df=np.sum(valid))
     return chi2, p_val
+
+
+def ora(obs_min, obs_max, pre):
+    """
+    Observation range adjusted
+
+    Creates a pseudo-observation dataset that is equal to the model when
+    it is within the observation range and is equal to the nearest
+    observation when the model is outside the observation range
+
+    Parameters
+    ----------
+    obs_min : array_like
+        Minimum values of observations
+    obs_max : array_like
+        Maximum values of observations
+    pre : array_like
+        Predicted values
+
+    Returns
+    -------
+    pseudo_obs : array_like
+        Pseudo observation, adjusted by observation range uncertainty
+
+    References
+    ----------
+    .. [Evans_2024] J P Evans and H M Imran, 2024
+        The observation range adjusted method:
+        a novel approach to accounting for observation uncertainty in
+        model evaluation
+        Environmental Research Communincations 6 (7), 071001
+        https://doi.org/10.1088/2515-7620/ad5ad8
+    """
+    valid = np.logical_and.reduce((np.isfinite(obs_min),
+                                   np.isfinite(obs_max),
+                                   np.isfinite(pre)))
+    obs_min = obs_min[valid]
+    obs_max = obs_max[valid]
+    pre = pre[valid]
+    pseudo_obs = pre.copy()
+    case = pre > obs_max
+    pseudo_obs[case] = obs_max[case]
+    case = pre < obs_min
+    pseudo_obs[case] = obs_min[case]
+    return pseudo_obs
 
