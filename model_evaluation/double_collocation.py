@@ -477,13 +477,12 @@ def ora(obs_min, obs_max, pre):
     valid = np.logical_and.reduce((np.isfinite(obs_min),
                                    np.isfinite(obs_max),
                                    np.isfinite(pre)))
-    obs_min = obs_min[valid]
-    obs_max = obs_max[valid]
-    pre = pre[valid]
+
     pseudo_obs = pre.copy()
-    case = pre > obs_max
+    pseudo_obs[~valid] = np.nan
+    case = np.logical_and(valid, pre > obs_max)
     pseudo_obs[case] = obs_max[case]
-    case = pre < obs_min
+    case = np.logical_and(valid, pre < obs_min)
     pseudo_obs[case] = obs_min[case]
     return pseudo_obs
 
