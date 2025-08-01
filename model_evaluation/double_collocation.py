@@ -2,6 +2,7 @@ import numpy as np
 import scipy.stats as st
 from scipy.interpolate import interpn
 
+
 def descriptive_stats(obs, pre):
     """
     Calculates the typical descriptive measurements based on collocated
@@ -426,9 +427,11 @@ def chi_squared(obs, pre, unc_obs, unc_pre):
 
     Returns
     -------
-    chi : array_like
+    chi : float
         The goodness of fit between the actual and estimated uncertainties of
         measurement and validation values
+    p_val : float
+        Significance test for $N - 1$ degrees of freedom 
     """
     valid = np.logical_and.reduce((np.isfinite(obs),
                                    np.isfinite(pre),
@@ -439,7 +442,7 @@ def chi_squared(obs, pre, unc_obs, unc_pre):
     unc_obs = unc_obs[valid]
     unc_pre = unc_pre[valid]
     chi2 = np.sum(((pre - obs)**2) / (unc_pre**2 + unc_obs**2))
-    p_val = st.chi2.sf(chi2, df=np.sum(valid))
+    p_val = st.chi2.sf(chi2, df=np.sum(valid) - 1)
     return chi2, p_val
 
 
