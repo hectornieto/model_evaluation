@@ -1,0 +1,41 @@
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "model_evaluation"
+version = "0.1.0"
+description = "Helper package evaluating the goodness of geophysical models"
+authors = [
+    { name = "Héctor Nieto", email = "hector.nieto@csic.es" }
+]
+
+maintainers = [
+    { name = "Héctor Nieto", email = "hector.nieto@csic.es" },
+]
+
+keywords = ['Error',
+            'Agreement',
+            'Uncertainty',
+            'Triple collocation',
+            ]
+
+classifiers  = [
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Science/Research",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3"]
+        
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.6"
+
+[project.urls]
+Homepage = "https://github.com/hectornieto/model_evaluation"
+
+[tool.setuptools]
+packages = ["model_evaluation"]
+
