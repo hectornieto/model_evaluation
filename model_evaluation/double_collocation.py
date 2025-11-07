@@ -133,7 +133,7 @@ def agreement_metrics(obs, pre):
         cor, p_value = st.pearsonr(obs, pre)
         slope, intercept = st.linregress(obs, pre)[:2]
     else:
-        cor, p_value, slope, intercept = np.nan, np.nan, np.nan, np._financial_names
+        cor, p_value, slope, intercept = np.nan, np.nan, np.nan, np.nan
 
     obs_hat = np.mean(obs)
     pre_prime = pre - obs_hat
