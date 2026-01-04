@@ -131,7 +131,8 @@ def agreement_metrics(obs, pre):
     obs, pre = remove_nans(obs, pre)
     if np.size(obs) > 2:
         cor, p_value = st.pearsonr(obs, pre)
-        slope, intercept = st.linregress(obs, pre)[:2]
+        slope, intercept = st.linregress(pre, obs)[:2] 
+        # since we plot pre vs. obs
     else:
         cor, p_value, slope, intercept = np.nan, np.nan, np.nan, np.nan
 
